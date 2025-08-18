@@ -69,6 +69,8 @@ class NemabotSimulation:
         self.triangle_angle = 0
         self.triangle_speed = 4
 
+        self.display_options_screen = False
+
         self.food_items = []
         self.obstacles = []
         self.food = 0
