@@ -53,7 +53,7 @@
 
  ▸ Step 1: Install dependencies
 
-     pip install -r requirements.txt
+     pip install pygame
 
  ▸ Step 2: Launch simulator
 
