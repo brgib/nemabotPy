@@ -1,5 +1,4 @@
-# Auto-generated split of Nemabot into multi-file structure.
-# You can move these into your repo and run nemabot.py
+# Auto-generated Nemabot multi-file package (with requested fixes).
 
 
 import pygame
@@ -22,8 +21,7 @@ def draw(sim, surface, rect):
         sim.draw_text(surface, "Aucun neurone sélectionné pour l'affichage.", left_margin, top_margin, color=sim.WHITE, font_size=24)
         return
 
-    neurons_per_column = num_neurons
-    neuron_spacing = 9
+    neuron_spacing = 9  # simple spacing as requested
 
     max_iterations = sim.iteration if sim.iteration else 1
     scale_x = plot_width / max_iterations

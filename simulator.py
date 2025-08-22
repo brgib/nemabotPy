@@ -1,5 +1,4 @@
-# Auto-generated split of Nemabot into multi-file structure.
-# You can move these into your repo and run nemabot.py
+# Auto-generated Nemabot multi-file package (with requested fixes).
 
 
 import time
@@ -59,8 +58,10 @@ class Simulator:
         self.iteration = 0
         self.iterations_per_second = 10
         self.simulation_time_accumulator = 0.0
+        # Paused at startup (step mode ON)
         self.step_mode = True
         self.step_ready = False
+        self.touch_neurons_active = False
 
         # Neuron data and selection
         self.neuron_data = {}
@@ -69,7 +70,7 @@ class Simulator:
         self.dropdown_menu_rect = None
         self.scale_reset = False
 
-        # Preconfigured sets (copied from original file)
+        # Preconfigured sets (default OFF as requested)
         self.preconfigured_sets = {
             'Muscles Tête': ['MVL01', 'MVL02', 'MVD01', 'MVD02', 'MDR01', 'MDR02', 'MVR01', 'MVR02'],
             'Muscles Ventraux': ['MVL07', 'MVL08', 'MVL09', 'MVR07', 'MVR08', 'MVR09'],
@@ -106,26 +107,26 @@ class Simulator:
         self.log_created = False
         self.file = None
 
-        # Worm functions (options screen)
+        # Worm functions (all OFF by default)
         self.worm_functions = [
-            {'name': 'Photodétection (ASI, AFD, AWB, AWC, ASK)', 'neurons': ['ASI', 'AFD', 'AWB', 'AWC', 'ASK'], 'active': True},
-            {'name': 'Osmosensation (ASH, FLP, OLQ, IL1, AVM, ALM)', 'neurons': ['ASH', 'FLP', 'OLQ', 'IL1', 'AVM', 'ALM'], 'active': True},
-            {'name': 'Chimiosensation (ASE, ASG, ASI, ASK, AWA, AWB, AWC)', 'neurons': ['ASE', 'ASG', 'ASI', 'ASK', 'AWA', 'AWB', 'AWC'], 'active': True},
-            {'name': 'Mécanoréception (AVM, ALM, PLM, PVD, FLP, OLQ, IL1)', 'neurons': ['AVM', 'ALM', 'PLM', 'PVD', 'FLP', 'OLQ', 'IL1'], 'active': True},
-            {'name': 'Faim / satiété (ADF, ASG, ASI, ASJ, NSM, URX)', 'neurons': ['ADF', 'ASG', 'ASI', 'ASJ', 'NSM', 'URX'], 'active': True},
-            {'name': 'Oxygène / CO₂ (URX, AQR, PQR, BAG, SDQ)', 'neurons': ['URX', 'AQR', 'PQR', 'BAG', 'SDQ'], 'active': True},
-            {'name': 'Thermosensation (AFD, AWC)', 'neurons': ['AFD', 'AWC'], 'active': True},
-            {'name': 'Locomotion (DA, DB, VA, VB, DD, VD)', 'neurons': ['DA', 'DB', 'VA', 'VB', 'DD', 'VD'], 'active': True},
-            {'name': 'Muscles pharyngiens (MC, M3, M4, M5, M1, I1, I2, I3)', 'neurons': ['MC', 'M3', 'M4', 'M5', 'M1', 'I1', 'I2', 'I3'], 'active': True},
-            {'name': "Réflexe d'évitement (ASH, FLP, AVA, AVB)", 'neurons': ['ASH', 'FLP', 'AVA', 'AVB'], 'active': True},
-            {'name': 'Détection étirement/forme (PVD, DVA)', 'neurons': ['PVD', 'DVA'], 'active': True},
-            {'name': 'Neurones de contact (OLQ, IL1, CEP)', 'neurons': ['OLQ', 'IL1', 'CEP'], 'active': True},
-            {'name': 'Système reproducteur (HSN, VC)', 'neurons': ['HSN', 'VC'], 'active': True},
-            {'name': 'Neurones sociaux / spécialisés (RMG, SAA, SAB, URA)', 'neurons': ['RMG', 'SAA', 'SAB', 'URA'], 'active': True},
+            {'name': 'Photodétection (ASI, AFD, AWB, AWC, ASK)', 'neurons': ['ASI', 'AFD', 'AWB', 'AWC', 'ASK'], 'active': False},
+            {'name': 'Osmosensation (ASH, FLP, OLQ, IL1, AVM, ALM)', 'neurons': ['ASH', 'FLP', 'OLQ', 'IL1', 'AVM', 'ALM'], 'active': False},
+            {'name': 'Chimiosensation (ASE, ASG, ASI, ASK, AWA, AWB, AWC)', 'neurons': ['ASE', 'ASG', 'ASI', 'ASK', 'AWA', 'AWB', 'AWC'], 'active': False},
+            {'name': 'Mécanoréception (AVM, ALM, PLM, PVD, FLP, OLQ, IL1)', 'neurons': ['AVM', 'ALM', 'PLM', 'PVD', 'FLP', 'OLQ', 'IL1'], 'active': False},
+            {'name': 'Faim / satiété (ADF, ASG, ASI, ASJ, NSM, URX)', 'neurons': ['ADF', 'ASG', 'ASI', 'ASJ', 'NSM', 'URX'], 'active': False},
+            {'name': 'Oxygène / CO₂ (URX, AQR, PQR, BAG, SDQ)', 'neurons': ['URX', 'AQR', 'PQR', 'BAG', 'SDQ'], 'active': False},
+            {'name': 'Thermosensation (AFD, AWC)', 'neurons': ['AFD', 'AWC'], 'active': False},
+            {'name': 'Locomotion (DA, DB, VA, VB, DD, VD)', 'neurons': ['DA', 'DB', 'VA', 'VB', 'DD', 'VD'], 'active': False},
+            {'name': 'Muscles pharyngiens (MC, M3, M4, M5, M1, I1, I2, I3)', 'neurons': ['MC', 'M3', 'M4', 'M5', 'M1', 'I1', 'I2', 'I3'], 'active': False},
+            {'name': "Réflexe d'évitement (ASH, FLP, AVA, AVB)", 'neurons': ['ASH', 'FLP', 'AVA', 'AVB'], 'active': False},
+            {'name': 'Détection étirement/forme (PVD, DVA)', 'neurons': ['PVD', 'DVA'], 'active': False},
+            {'name': 'Neurones de contact (OLQ, IL1, CEP)', 'neurons': ['OLQ', 'IL1', 'CEP'], 'active': False},
+            {'name': 'Système reproducteur (HSN, VC)', 'neurons': ['HSN', 'VC'], 'active': False},
+            {'name': 'Neurones sociaux / spécialisés (RMG, SAA, SAB, URA)', 'neurons': ['RMG', 'SAA', 'SAB', 'URA'], 'active': False},
         ]
         self.update_forced_active_neurons()
 
-        # Background image (optional, ignore errors)
+        # Background image (startup)
         try:
             self.background_image = pygame.image.load("ver_c_elegans_01_1920.jpg").convert()
             self.background_image = pygame.transform.scale(self.background_image, (self.WIDTH, self.HEIGHT))
@@ -160,9 +161,9 @@ class Simulator:
         else:
             self.font_size = self.base_font_size
         self.font = pygame.font.Font(None, self.font_size)
-        # reload bg if exists
+        # reload bg (same file name as requested)
         try:
-            img = pygame.image.load("ver_c_elegans_01.jpg").convert()
+            img = pygame.image.load("ver_c_elegans_01_1920.jpg").convert()
             self.background_image = pygame.transform.scale(img, (self.WIDTH, self.HEIGHT))
         except pygame.error:
             pass
@@ -177,7 +178,7 @@ class Simulator:
                         if key.startswith(n):
                             self.forced_active_neurons.add(key)
 
-    # ---------- connectome & movement (from original) ----------
+    # ---------- connectome & movement ----------
     def motorcontrol(self):
         self.accumleft = 0
         self.accumright = 0
@@ -187,28 +188,17 @@ class Simulator:
             elif pscheck in musDright or pscheck in musVright:
                 self.accumright += postsynaptic[pscheck][self.thisState]
 
-        new_speed = abs(self.accumleft) + abs(self.accumright)
-        new_speed = min(max(new_speed, 75), 150)
-
         if self.accumleft == 0 and self.accumright == 0:
             self.stop()
         elif self.accumright <= 0 and self.accumleft < 0:
-            turnratio = float(self.accumright) / float(self.accumleft) if self.accumleft != 0 else 0
-            if turnratio <= 0.6:
-                self.left_rot()
-            elif turnratio >= 2:
-                self.right_rot()
+            self.left_rot()
             self.bwd()
         elif self.accumright <= 0 and self.accumleft >= 0:
             self.right_rot()
         elif self.accumright >= 0 and self.accumleft <= 0:
             self.left_rot()
         elif self.accumright >= 0 and self.accumleft > 0:
-            turnratio = float(self.accumright) / float(self.accumleft) if self.accumleft != 0 else 0
-            if turnratio <= 0.6:
-                self.left_rot()
-            elif turnratio >= 2:
-                self.right_rot()
+            self.right_rot()
             self.fwd()
         else:
             self.stop()
@@ -248,7 +238,7 @@ class Simulator:
         masked_indices = [(idx ^ random_mask, idx) for idx in range(num_neurons)]
         masked_indices.sort()
 
-        # force active neurons
+        # forced
         for neuron in self.forced_active_neurons:
             postsynaptic[neuron][self.thisState] = threshold
             postsynaptic[neuron][self.nextState] = threshold
@@ -306,7 +296,7 @@ class Simulator:
         self.current_time = time.time() - self.start_time
         self.time_values.append(self.current_time)
 
-        if self.touch or (False and 0 < self.dist < 30):  # touch handling could be extended
+        if self.touch or (self.touch_neurons_active and 0 < self.dist < 30):
             self.activate_touch_neurons()
         else:
             if self.food > 15:
@@ -329,7 +319,7 @@ class Simulator:
             neurone_values_str = f"{self.iteration}," + ",".join(str(postsynaptic[pscheck][self.thisState]) for pscheck in postsynaptic) + '\\n'
             self.file.write(neurone_values_str)
 
-    # ----- movement helpers used by movement screen -----
+    # ----- movement helpers -----
     def move_triangle_forward(self):
         self.triangle_pos[0] += self.triangle_speed * math.cos(math.radians(self.triangle_angle))
         self.triangle_pos[1] += self.triangle_speed * math.sin(math.radians(self.triangle_angle))
@@ -351,9 +341,9 @@ class Simulator:
     def add_food(self):
         self.tfood += 10
 
-    # ----- worm kinematics (profile/top) -----
+    # ----- worm kinematics -----
     def update_worm_movement(self):
-        num_segments = 17  # muscles 07..23
+        num_segments = 17
         if not hasattr(self, 'muscle_segments'):
             self.muscle_segments = [{} for _ in range(num_segments)]
 
