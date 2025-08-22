@@ -1,4 +1,4 @@
-# Auto-generated Nemabot multi-file package (with requested fixes).
+# Auto-generated Nemabot multi-file package (autoscale only on Waves).
 
 
 import pygame
@@ -8,10 +8,8 @@ def draw(sim, surface, rect):
     half_height = rect.height // 2
     profile_rect = pygame.Rect(0, 0, rect.width, half_height)
     top_rect = pygame.Rect(0, half_height, rect.width, rect.height - half_height)
-
     profile_surface = surface.subsurface(profile_rect)
     top_surface = surface.subsurface(top_rect)
-
     draw_worm_profile(sim, profile_surface, profile_surface.get_rect())
     draw_worm_top(sim, top_surface, top_surface.get_rect())
 
@@ -25,9 +23,7 @@ def draw_worm_profile(sim, surface, rect):
     center_y = rect.centery
     segment_height = 40
     x = rect.left + (rect.width - total_length) / 2
-
     sim.draw_text(surface, "Vue de profil", rect.left + 10, rect.top + 10, sim.colorsName['green'], font_size=24)
-
     for segment in sim.muscle_segments:
         length_factor = segment["length_factor"]
         segment_length = L_base * length_factor

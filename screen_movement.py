@@ -1,4 +1,4 @@
-# Auto-generated Nemabot multi-file package (with requested fixes).
+# Auto-generated Nemabot multi-file package (autoscale only on Waves).
 
 
 import pygame
@@ -11,21 +11,17 @@ def draw(sim, surface, rect):
     draw_obstacles(sim, surface, rect)
     check_food_collision(sim)
     check_obstacle_collision(sim)
-
     sim.draw_text(surface, f"Food: {sim.food}", 10, 40)
     sim.draw_text(surface, f"Touch: {sim.touch}", 10, 70)
     sim.draw_text(surface, f"Iteration N°:{sim.iteration}", rect.width - 200, 10)
 
 def handle_mouse_click(sim, pos, button):
-    rect = sim.screen.get_rect()
     if button == 1:
         clicked_on_food = False
         for food_pos in list(sim.food_items):
             distance = math.hypot(pos[0] - food_pos[0], pos[1] - food_pos[1])
             if distance <= 10:
-                sim.food_items.remove(food_pos)
-                clicked_on_food = True
-                break
+                sim.food_items.remove(food_pos); clicked_on_food = True; break
         if not clicked_on_food:
             sim.food_items.append((pos[0], pos[1]))
     elif button == 3:
@@ -33,9 +29,7 @@ def handle_mouse_click(sim, pos, button):
         for obstacle in list(sim.obstacles):
             rect_obstacle = pygame.Rect(obstacle)
             if rect_obstacle.collidepoint(pos):
-                sim.obstacles.remove(obstacle)
-                clicked_on_obstacle = True
-                break
+                sim.obstacles.remove(obstacle); clicked_on_obstacle = True; break
         if not clicked_on_obstacle:
             sim.obstacles.append((pos[0] - 25, pos[1] - 25, 50, 50))
 
@@ -73,5 +67,4 @@ def check_obstacle_collision(sim):
     sim.touch = False
     for obstacle in sim.obstacles:
         if pygame.Rect(obstacle).collidepoint(sim.triangle_pos):
-            sim.touch = True
-            break
+            sim.touch = True; break

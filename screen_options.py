@@ -1,5 +1,4 @@
-# Auto-generated split of Nemabot into multi-file structure.
-# You can move these into your repo and run nemabot.py
+# Auto-generated Nemabot multi-file package (autoscale only on Waves).
 
 
 import pygame

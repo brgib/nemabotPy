@@ -1,4 +1,4 @@
-# Auto-generated Nemabot multi-file package (with requested fixes).
+# Auto-generated Nemabot multi-file package (autoscale only on Waves).
 
 
 import pygame
@@ -28,13 +28,17 @@ def draw(sim, surface, rect):
     if not sim.neuron_data:
         return
 
-    if sim.scale_reset:
-        sim.scale_reset = False
+    if sim.auto_scale_waves:
         sim.max_value = max([max(data['values']) for data in sim.neuron_data.values()] + [1])
         sim.min_value = min([min(data['values']) for data in sim.neuron_data.values()] + [-1])
     else:
-        sim.max_value = getattr(sim, 'max_value', max([max(data['values']) for data in sim.neuron_data.values()] + [1]))
-        sim.min_value = getattr(sim, 'min_value', min([min(data['values']) for data in sim.neuron_data.values()] + [-1]))
+        if sim.scale_reset:
+            sim.scale_reset = False
+            sim.max_value = max([max(data['values']) for data in sim.neuron_data.values()] + [1])
+            sim.min_value = min([min(data['values']) for data in sim.neuron_data.values()] + [-1])
+        else:
+            sim.max_value = getattr(sim, 'max_value', max([max(data['values']) for data in sim.neuron_data.values()] + [1]))
+            sim.min_value = getattr(sim, 'min_value', min([min(data['values']) for data in sim.neuron_data.values()] + [-1]))
 
     scale_x = plot_width / max(max_iterations - 1, 1)
     scale_y = plot_height / (sim.max_value - sim.min_value + 1e-9)

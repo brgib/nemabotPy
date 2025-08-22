@@ -1,20 +1,18 @@
-# Auto-generated Nemabot multi-file package (with requested fixes).
+# Auto-generated Nemabot multi-file package (autoscale only on Waves).
 
 
 import pygame
 from simulator import Simulator
 
-# Screens
 import screen_help
 import screen_matrix
-import screen_curve
-import screen_wave
+import screen_curve   # Waves (courbes)
+import screen_wave    # Raster (déclenchements)
 import screen_movement
 import screen_worm
 import screen_options
 
 def splash(sim):
-    # Draw background image & title using the requested file name loaded in Simulator
     rect = sim.screen.get_rect()
     if sim.background_image is not None:
         sim.screen.blit(sim.background_image, (0, 0))
@@ -35,17 +33,12 @@ def splash(sim):
 def main():
     sim = Simulator()
     clock = pygame.time.Clock()
-
-    # Splash/title screen
     splash(sim)
-
     sim.game_active = True
     running = True
-
     while running:
         dt = clock.tick(60) / 1000.0
         sim.simulation_time_accumulator += dt
-
         for event in pygame.event.get():
             if event.type == pygame.QUIT:
                 running = False
@@ -57,7 +50,6 @@ def main():
         if not sim.running:
             sim.start_simulation()
 
-        # Paused at startup; step runs exactly one iteration per 'S' press
         if sim.step_mode:
             if sim.step_ready:
                 sim.step_simulation()
@@ -85,9 +77,7 @@ def main():
             screen_options.draw(sim, sim.screen, rect)
         else:
             screen_help.draw(sim, sim.screen, rect)
-
         pygame.display.flip()
-
     sim.shutdown()
 
 def handle_key(sim, event):
@@ -111,7 +101,6 @@ def handle_key(sim, event):
     elif k == pygame.K_p:
         sim.step_mode = not sim.step_mode
         sim.step_ready = False
-        # optional: reset accumulator when leaving step mode to avoid catching up
         if not sim.step_mode:
             sim.simulation_time_accumulator = 0.0
     elif k == pygame.K_s and sim.step_mode:
@@ -130,12 +119,18 @@ def handle_key(sim, event):
         sim.touch_neurons_active = not sim.touch_neurons_active
     elif k == pygame.K_e:
         sim.dropdown_menu_visible = not sim.dropdown_menu_visible
+    elif k == pygame.K_BACKSPACE:
+        if sim.display_curve_screen:
+            sim.scale_reset = True
+    elif k == pygame.K_a:
+        if sim.display_curve_screen:
+            sim.auto_scale_waves = not sim.auto_scale_waves
 
 def set_screen(sim, help=False, matrix=False, curve=False, wave=False, movement=False, worm=False, options=False):
     sim.display_help_screen = help
     sim.display_neuron_matrix = matrix
-    sim.display_curve_screen = curve
-    sim.display_wave_screen = wave
+    sim.display_curve_screen = curve    # Waves
+    sim.display_wave_screen = wave      # Raster
     sim.display_movement_screen = movement
     sim.display_worm_screen = worm
     sim.display_options_screen = options

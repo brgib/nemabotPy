@@ -1,4 +1,4 @@
-# Auto-generated Nemabot multi-file package (with requested fixes).
+# Auto-generated Nemabot multi-file package (autoscale only on Waves).
 
 
 import pygame
@@ -15,15 +15,14 @@ def draw(sim, surface, rect):
     plot_height = rect.height - top_margin - bottom_margin
 
     neurons = list(sim.neuron_data.keys())
-    num_neurons = len(neurons)
 
-    if num_neurons == 0:
+    if len(neurons) == 0:
         sim.draw_text(surface, "Aucun neurone sélectionné pour l'affichage.", left_margin, top_margin, color=sim.WHITE, font_size=24)
         return
 
-    neuron_spacing = 9  # simple spacing as requested
+    neuron_spacing = 9  # simple layout
 
-    max_iterations = sim.iteration if sim.iteration else 1
+    max_iterations = max(1, sim.iteration)
     scale_x = plot_width / max_iterations
 
     pygame.draw.line(surface, sim.WHITE, (left_margin, top_margin), (left_margin, rect.height - bottom_margin))
@@ -34,9 +33,7 @@ def draw(sim, surface, rect):
         name_x = left_margin - 10
         sim.draw_text(surface, neuron, name_x, y_pos - 10, color=sim.neuron_data[neuron]['color'], font_size=16, align='right')
         pygame.draw.line(surface, sim.WHITE, (left_margin, y_pos), (rect.width - right_margin, y_pos))
-
-        activation_times = sim.neuron_data[neuron]['activation_times']
-        for t in activation_times:
+        for t in sim.neuron_data[neuron]['activation_times']:
             x_pos = left_margin + t * scale_x
             pygame.draw.line(surface, sim.neuron_data[neuron]['color'], (x_pos, y_pos - 5), (x_pos, y_pos + 5), 2)
 
