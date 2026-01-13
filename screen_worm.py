@@ -1,4 +1,13 @@
-# Auto-generated Nemabot multi-file package (autoscale only on Waves).
+"""screen_worm.py
+
+Worm schematic screen.
+
+Renders a simplified worm representation in two views:
+- Profile view (segment length scaling indicates contraction)
+- Top view (polyline indicates curvature along the body)
+
+The segment state is updated by `Simulator.update_worm_movement()`.
+"""
 
 
 import pygame

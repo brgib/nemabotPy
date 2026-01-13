@@ -1,4 +1,16 @@
-# Auto-generated Nemabot multi-file package (autoscale only on Waves).
+"""simulator.py
+
+Core simulation state and shared utilities.
+
+This module owns the main `Simulator` class:
+- Pygame window management (fullscreen, 4K).
+- Shared colors, fonts and `draw_text()` helper.
+- Simulation control (step mode, iterations per second).
+- Global state shared by all screens.
+
+The menu screen (screen_menu.py) relies on `sim.menu_items` and
+`sim.menu_selection_index` defined here.
+"""
 
 
 import time
@@ -13,6 +25,28 @@ class Simulator:
         self.WIDTH, self.HEIGHT = 1920, 1080
         self.screen = pygame.display.set_mode((self.WIDTH, self.HEIGHT))
         pygame.display.set_caption("Nemabot")
+
+        # --- Menu (mosaic) state -------------------------------------------------
+        # The menu is a grid of clickable thumbnails representing each screen.
+        # Files are expected to be alongside the executable (relative paths).
+        self.menu_buttons = []  # filled by screen_menu.draw() for click hit-testing
+        self.menu_selection_index = 0
+
+        # Define menu entries once, so both keyboard navigation and click routing
+        # can target the same list.
+        # NOTE: Image files are expected to exist on disk (PNG recommended). If an
+        # image cannot be loaded, the menu will render a placeholder tile.
+        self.menu_items = [
+            {"key": "neuralMatrix", "label": "Neural matrix", "image": "neuralMatrix.png", "attr": "display_neuron_matrix"},
+            {"key": "neuralWaves", "label": "Neural waves", "image": "neuralWaves.png", "attr": "display_curve_screen"},
+            {"key": "neuralThresholdWaves", "label": "Threshold waves", "image": "neuralThresholdWaves.png", "attr": "display_wave_screen"},
+            {"key": "wormSchematic", "label": "Worm schematic", "image": "wormSchematic.png", "attr": "display_worm_screen"},
+            {"key": "wormWorld", "label": "Worm world", "image": "wormWorld.png", "attr": "display_movement_screen"},
+            {"key": "help", "label": "Help", "image": "help.png", "attr": "display_help_screen"},
+        ]
+
+        self._menu_image_cache = {}  # {image_path: pygame.Surface}
+
 
         self.colorsName = {
             'white': (255, 255, 255),
@@ -38,7 +72,8 @@ class Simulator:
         self.display_curve_screen = False   # Waves
         self.display_neuron_matrix = False
         self.display_wave_screen = False    # Raster (spikes)
-        self.display_help_screen = True
+        self.display_help_screen = False
+        self.display_menu_screen = True
         self.display_worm_screen = False
         self.display_options_screen = False
         self.is_4k_mode = False
@@ -136,6 +171,58 @@ class Simulator:
         elif align == 'center':
             textrect.center = (x, y)
         surface.blit(textobj, textrect)
+
+    # ---------------------------------------------------------------------
+    # Menu helpers
+    # ---------------------------------------------------------------------
+    def get_menu_thumbnail(self, image_path, size):
+        """Load + cache menu thumbnails.
+
+        If the image cannot be loaded, returns a placeholder tile surface.
+        """
+        cache_key = (image_path, size)
+        if cache_key in self._menu_image_cache:
+            return self._menu_image_cache[cache_key]
+
+        try:
+            img = pygame.image.load(image_path).convert_alpha()
+            thumb = pygame.transform.smoothscale(img, size)
+        except Exception:
+            # Placeholder tile
+            thumb = pygame.Surface(size, pygame.SRCALPHA)
+            thumb.fill((30, 30, 30))
+            pygame.draw.rect(thumb, (120, 120, 120), thumb.get_rect(), 2)
+            self.draw_text(thumb, "Missing", size[0] // 2, size[1] // 2 - 10, (220, 220, 220), font_size=28, align='center')
+            self.draw_text(thumb, image_path, size[0] // 2, size[1] // 2 + 18, (180, 180, 180), font_size=18, align='center')
+
+        self._menu_image_cache[cache_key] = thumb
+        return thumb
+
+    def move_menu_selection(self, dx, dy, cols):
+        """Move selection in a grid and wrap around horizontally/vertically."""
+        n = len(self.menu_items)
+        if n == 0:
+            self.menu_selection_index = 0
+            return
+
+        rows = (n + cols - 1) // cols
+        idx = self.menu_selection_index
+        r = idx // cols
+        c = idx % cols
+
+        # Horizontal move with wrap.
+        if dx:
+            c = (c + dx) % cols
+
+        # Vertical move with wrap.
+        if dy:
+            r = (r + dy) % rows
+
+        new_idx = r * cols + c
+        # If the target cell is beyond the last item, clamp to last item in row.
+        if new_idx >= n:
+            new_idx = n - 1
+        self.menu_selection_index = new_idx
 
     def toggle_fullscreen(self):
         self.fullscreen_mode = not self.fullscreen_mode

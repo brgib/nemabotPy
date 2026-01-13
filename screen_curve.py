@@ -1,4 +1,11 @@
-# Auto-generated Nemabot multi-file package (autoscale only on Waves).
+"""screen_curve.py
+
+Raster-like activation timeline screen.
+
+Displays neurons as horizontal rows and draws small vertical tick marks at
+their activation times. This view is complementary to the continuous curves
+in `screen_wave.py`.
+"""
 
 
 import pygame

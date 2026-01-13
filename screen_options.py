@@ -1,4 +1,12 @@
-# Auto-generated Nemabot multi-file package (autoscale only on Waves).
+"""screen_options.py
+
+Worm functions / feature toggles.
+
+The screen shows a list of high-level functional groups (photodetection,...).
+Each row is clickable to enable/disable the group. When a group is enabled,
+its associated neurons are added to `sim.forced_active_neurons` via
+`Simulator.update_forced_active_neurons()`.
+"""
 
 
 import pygame

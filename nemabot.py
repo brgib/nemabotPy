@@ -1,9 +1,24 @@
-# Auto-generated Nemabot multi-file package (autoscale only on Waves).
+"""nemabot.py
+
+Application entry point.
+
+Responsibilities:
+- Show splash screen.
+- Run the main loop (events, stepping the simulation, rendering).
+- Route keyboard/mouse events to the active screen module.
+
+Menu UX:
+- After the splash screen, the default view is the mosaic menu
+  (screen_menu.py).
+- From any screen: Space or Enter returns to the mosaic menu.
+- From the mosaic menu: arrow keys move the selection and Space/Enter opens
+  the selected tile.
+"""
 
 
 import pygame
 from simulator import Simulator
-
+import screen_menu
 import screen_help
 import screen_matrix
 import screen_curve   # Waves (courbes)
@@ -63,6 +78,8 @@ def main():
         rect = sim.screen.get_rect()
         if sim.display_help_screen:
             screen_help.draw(sim, sim.screen, rect)
+        elif sim.display_menu_screen:
+            screen_menu.draw(sim, sim.screen, rect)
         elif sim.display_neuron_matrix:
             screen_matrix.draw(sim, sim.screen, rect)
         elif sim.display_curve_screen:
@@ -84,6 +101,24 @@ def handle_key(sim, event):
     k = event.key
     if k == pygame.K_ESCAPE:
         pygame.event.post(pygame.event.Event(pygame.QUIT))
+
+    # Space/Enter are contextual:
+    # - If we are in the menu, they open the selected tile.
+    # - Otherwise, they return to the menu.
+    elif k in (pygame.K_RETURN, pygame.K_SPACE):
+        if sim.display_menu_screen:
+            # Let the menu open the current selection.
+            screen_menu.handle_key(sim, k)
+        else:
+            set_screen(sim, menu=True)
+        return
+
+    # If the menu is visible, arrow keys should navigate the mosaic.
+    if sim.display_menu_screen and k in (pygame.K_LEFT, pygame.K_RIGHT, pygame.K_UP, pygame.K_DOWN):
+        # Use the grid heuristic from screen_menu to determine a consistent wrap.
+        cols = 3 if len(sim.menu_items) <= 6 else 4
+        screen_menu.handle_key(sim, k, cols_hint=cols)
+        return
     elif k == pygame.K_h:
         set_screen(sim, help=True)
     elif k == pygame.K_m:
@@ -126,7 +161,8 @@ def handle_key(sim, event):
         if sim.display_curve_screen:
             sim.auto_scale_waves = not sim.auto_scale_waves
 
-def set_screen(sim, help=False, matrix=False, curve=False, wave=False, movement=False, worm=False, options=False):
+def set_screen(sim, menu=False, help=False, matrix=False, curve=False, wave=False, movement=False, worm=False, options=False):
+    sim.display_menu_screen = menu
     sim.display_help_screen = help
     sim.display_neuron_matrix = matrix
     sim.display_curve_screen = curve    # Waves
@@ -144,6 +180,9 @@ def route_mouse(sim, pos, button):
         screen_curve.handle_mouse_click(sim, pos, button)
     elif sim.display_options_screen:
         screen_options.handle_mouse_click(sim, pos)
+    elif sim.display_menu_screen:
+        screen_menu.handle_mouse_click(sim, pos)
+
 
 if __name__ == "__main__":
     main()

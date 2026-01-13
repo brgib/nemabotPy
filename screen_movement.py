@@ -1,4 +1,15 @@
-# Auto-generated Nemabot multi-file package (autoscale only on Waves).
+"""screen_movement.py
+
+Worm world (movement sandbox).
+
+Shows the "triangle worm" that moves based on motor neuron activity.
+The user can place:
+- Green circles = food (left click)
+- Red squares   = obstacles (right click)
+
+The module updates `sim.food` based on distance to food items and `sim.touch`
+when the triangle collides with obstacles.
+"""
 
 
 import pygame

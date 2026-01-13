@@ -1,4 +1,11 @@
-# Auto-generated Nemabot multi-file package (autoscale only on Waves).
+"""screen_matrix.py
+
+Neuron matrix screen.
+
+Renders all neurons as a grid of circles whose radius/color represent the
+current activation. Left-click toggles a neuron in the "forced active" set.
+Right-click adds/removes the neuron to the plotted sets (curves/raster).
+"""
 
 
 import math

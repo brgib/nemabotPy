@@ -1,4 +1,10 @@
-# Auto-generated Nemabot multi-file package (autoscale only on Waves).
+"""screen_help.py
+
+Help / shortcuts screen.
+
+This screen is intentionally static and documents the main keyboard shortcuts
+available in the application.
+"""
 
 
 import pygame

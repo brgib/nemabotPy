@@ -1,4 +1,10 @@
-# Auto-generated Nemabot multi-file package (autoscale only on Waves).
+"""screen_wave.py
+
+Continuous curves ("waves") screen.
+
+Plots the value of selected neurons over time. Autoscaling can be toggled for
+this screen only (see shortcut 'A' in the help screen).
+"""
 
 
 import pygame
