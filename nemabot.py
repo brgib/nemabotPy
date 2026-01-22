@@ -22,10 +22,12 @@ import screen_menu
 import screen_help
 import screen_matrix
 import screen_curve   # Waves (courbes)
-import screen_wave    # Raster (déclenchements)
+import screen_wave    # Raster (déclenchementws)
 import screen_movement
 import screen_worm
 import screen_options
+import screen_excel_loader
+import screen_forced_functions
 
 def splash(sim):
     rect = sim.screen.get_rect()
@@ -61,6 +63,9 @@ def main():
                 handle_key(sim, event)
             elif event.type == pygame.MOUSEBUTTONDOWN:
                 route_mouse(sim, event.pos, event.button)
+            elif event.type == pygame.TEXTINPUT:
+                if getattr(sim, 'display_excel_loader_screen', False):
+                    screen_excel_loader.handle_text(sim, event.text)
 
         if not sim.running:
             sim.start_simulation()
@@ -90,6 +95,10 @@ def main():
             screen_movement.draw(sim, sim.screen, rect)
         elif sim.display_worm_screen:
             screen_worm.draw(sim, sim.screen, rect)
+        elif sim.display_excel_loader_screen:
+            screen_excel_loader.draw(sim, sim.screen, rect)
+        elif sim.display_forced_functions_screen:
+            screen_forced_functions.draw(sim, sim.screen, rect)
         elif sim.display_options_screen:
             screen_options.draw(sim, sim.screen, rect)
         else:
@@ -99,27 +108,70 @@ def main():
 
 def handle_key(sim, event):
     k = event.key
-    if k == pygame.K_ESCAPE:
-        pygame.event.post(pygame.event.Event(pygame.QUIT))
 
-    # Space/Enter are contextual:
-    # - If we are in the menu, they open the selected tile.
-    # - Otherwise, they return to the menu.
-    elif k in (pygame.K_RETURN, pygame.K_SPACE):
-        if sim.display_menu_screen:
-            # Let the menu open the current selection.
+    # ------------------------------------------------------------------
+    # ESC behavior:
+    # - If we are in the main menu, ESC quits the program.
+    # - From any other screen, ESC returns to the main menu.
+    # ------------------------------------------------------------------
+    if k == pygame.K_ESCAPE:
+        if getattr(sim, 'display_menu_screen', False):
+            pygame.event.post(pygame.event.Event(pygame.QUIT))
+        else:
+            set_screen(sim, menu=True)
+        return
+
+    # ------------------------------------------------------------------
+    # SPACE behavior (user request):
+    # - From the menu: open the selected tile / action.
+    # - From any other screen: return to the menu.
+    # ------------------------------------------------------------------
+    if k == pygame.K_SPACE:
+        if getattr(sim, 'display_menu_screen', False):
             screen_menu.handle_key(sim, k)
         else:
             set_screen(sim, menu=True)
         return
 
+    # ------------------------------------------------------------------
+    # ENTER behavior:
+    # - Reserved for in-screen interactions (not for navigating menu).
+    #   In particular, Options uses ENTER to toggle items.
+    # - Excel / Forced-functions keep their own ENTER handling.
+    # ------------------------------------------------------------------
+    if k == pygame.K_RETURN:
+        if getattr(sim, 'display_options_screen', False):
+            screen_options.handle_key(sim, k)
+        elif getattr(sim, 'display_excel_loader_screen', False):
+            screen_excel_loader.handle_key(sim, k)
+        elif getattr(sim, 'display_forced_functions_screen', False):
+            screen_forced_functions.handle_key(sim, k)
+        # In other screens, ENTER does nothing by design.
+        return
+
     # If the menu is visible, arrow keys should navigate the mosaic.
-    if sim.display_menu_screen and k in (pygame.K_LEFT, pygame.K_RIGHT, pygame.K_UP, pygame.K_DOWN):
-        # Use the grid heuristic from screen_menu to determine a consistent wrap.
+    if getattr(sim, 'display_menu_screen', False) and k in (pygame.K_LEFT, pygame.K_RIGHT, pygame.K_UP, pygame.K_DOWN):
         cols = 3 if len(sim.menu_items) <= 6 else 4
         screen_menu.handle_key(sim, k, cols_hint=cols)
         return
-    elif k == pygame.K_h:
+
+    # If Options screen is visible, let arrows move selection.
+    if getattr(sim, 'display_options_screen', False) and k in (pygame.K_UP, pygame.K_DOWN):
+        screen_options.handle_key(sim, k)
+        return
+
+    # If forced-functions screen is visible, arrow keys navigate that grid.
+    if getattr(sim, 'display_forced_functions_screen', False) and k in (pygame.K_LEFT, pygame.K_RIGHT, pygame.K_UP, pygame.K_DOWN):
+        screen_forced_functions.handle_key(sim, k)
+        return
+
+    # If Excel loader screen is visible, forward most keys to it.
+    if getattr(sim, 'display_excel_loader_screen', False):
+        screen_excel_loader.handle_key(sim, k)
+        return
+
+    # Quick shortcuts
+    if k == pygame.K_h:
         set_screen(sim, help=True)
     elif k == pygame.K_m:
         set_screen(sim, matrix=True)
@@ -161,15 +213,27 @@ def handle_key(sim, event):
         if sim.display_curve_screen:
             sim.auto_scale_waves = not sim.auto_scale_waves
 
-def set_screen(sim, menu=False, help=False, matrix=False, curve=False, wave=False, movement=False, worm=False, options=False):
-    sim.display_menu_screen = menu
-    sim.display_help_screen = help
-    sim.display_neuron_matrix = matrix
-    sim.display_curve_screen = curve    # Waves
-    sim.display_wave_screen = wave      # Raster
-    sim.display_movement_screen = movement
-    sim.display_worm_screen = worm
-    sim.display_options_screen = options
+
+def set_screen(sim, menu=False, help=False, matrix=False, curve=False, wave=False, movement=False, worm=False, options=False,
+               excel=False, forced_functions=False):
+    """Activate exactly one screen (and disable all others).
+
+    This prevents UI routing bugs where multiple display_* flags stay True and
+    keyboard/mouse events go to the wrong screen.
+    """
+    sim.display_menu_screen = bool(menu)
+    sim.display_help_screen = bool(help)
+    sim.display_neuron_matrix = bool(matrix)
+    sim.display_curve_screen = bool(curve)    # Waves
+    sim.display_wave_screen = bool(wave)      # Raster
+    sim.display_movement_screen = bool(movement)
+    sim.display_worm_screen = bool(worm)
+    sim.display_options_screen = bool(options)
+
+    # Additional screens
+    sim.display_excel_loader_screen = bool(excel)
+    sim.display_forced_functions_screen = bool(forced_functions)
+
 
 def route_mouse(sim, pos, button):
     if sim.display_neuron_matrix:
@@ -178,6 +242,11 @@ def route_mouse(sim, pos, button):
         screen_movement.handle_mouse_click(sim, pos, button)
     elif sim.display_curve_screen:
         screen_curve.handle_mouse_click(sim, pos, button)
+    elif sim.display_excel_loader_screen:
+        # Excel screen currently uses keyboard primarily; keep click for future extensions
+        pass
+    elif sim.display_forced_functions_screen:
+        screen_forced_functions.handle_mouse_click(sim, pos)
     elif sim.display_options_screen:
         screen_options.handle_mouse_click(sim, pos)
     elif sim.display_menu_screen:

@@ -76,6 +76,9 @@ class Simulator:
         self.display_menu_screen = True
         self.display_worm_screen = False
         self.display_options_screen = False
+        # New screens
+        self.display_excel_loader_screen = False
+        self.display_forced_functions_screen = False
         self.is_4k_mode = False
         self.fullscreen_mode = False
 
@@ -94,6 +97,15 @@ class Simulator:
         # Data
         self.neuron_data = {}
         self.forced_active_neurons = set()
+        # Forced functions screen aggregates into this set (logical neuron names).
+        # Your UI (screen_forced_functions.py) maintains sim.forced_neurons.
+        self.forced_neurons = set()
+        self.forced_functions_state = {}
+        self.functions_selection_index = 0
+        # Excel loader screen state
+        self.excel_path = ""
+        self.excel_status = "No file loaded."
+        self.loaded_network_from_excel = None
         self.dropdown_menu_visible = False
         self.dropdown_menu_rect = None
         self.scale_reset = False
@@ -129,6 +141,10 @@ class Simulator:
 
         self.neurones = []
         self.time_values = []
+
+        # Diagnostics for the threshold screen
+        self.max_postsynaptic_value = 0
+        self.neurons_above_threshold = []
         self.dist = 15
         self.tfood = 0
         self.log_created = False
@@ -171,6 +187,35 @@ class Simulator:
         elif align == 'center':
             textrect.center = (x, y)
         surface.blit(textobj, textrect)
+
+    def update_forced_active_neurons(self):
+        """Recompute the set of postsynaptic neurons forced active each cycle.
+
+        Sources:
+        - self.worm_functions (legacy option toggles)
+        - self.forced_neurons (new forced-functions screen, logical neuron names)
+
+        Special pseudo-neurons (handled elsewhere):
+        - FOOD_SENSOR, TOUCH_SENSOR
+        """
+        self.forced_active_neurons.clear()
+
+        # Legacy worm_functions
+        for func in getattr(self, 'worm_functions', []):
+            if func.get('active'):
+                for n in func.get('neurons', []):
+                    for key in postsynaptic:
+                        if key.startswith(n):
+                            self.forced_active_neurons.add(key)
+
+        # New forced functions screen
+        for n in getattr(self, 'forced_neurons', set()):
+            if n in ('FOOD_SENSOR', 'TOUCH_SENSOR'):
+                continue
+            for key in postsynaptic:
+                if key.startswith(n):
+                    self.forced_active_neurons.add(key)
+
 
     # ---------------------------------------------------------------------
     # Menu helpers
@@ -241,14 +286,6 @@ class Simulator:
         except pygame.error:
             pass
 
-    def update_forced_active_neurons(self):
-        self.forced_active_neurons.clear()
-        for func in self.worm_functions:
-            if func['active']:
-                for n in func['neurons']:
-                    for key in postsynaptic:
-                        if key.startswith(n):
-                            self.forced_active_neurons.add(key)
 
     def motorcontrol(self):
         self.accumleft = 0
@@ -301,19 +338,33 @@ class Simulator:
 
         for _, idx in masked_indices:
             ps = neuron_list[idx]
+            # --- Inverse decay (always applied; prevents runaway growth) ---
             if postsynaptic[ps][self.nextState] > postsynaptic[ps][self.thisState]:
                 postsynaptic[ps][self.decroissance] = 0
             else:
-                postsynaptic[ps][self.nextState] = postsynaptic[ps][self.nextState] * 0.9
+                postsynaptic[ps][self.decroissance] += 1
+
+            decay_k = 0.5
+            decay_offset = 5.0
+            n = postsynaptic[ps][self.decroissance] + 1  # avoid 0
+            decay_factor = 1.0 - (decay_k / (n + decay_offset))
+
+            postsynaptic[ps][self.nextState] *= decay_factor
+            if postsynaptic[ps][self.nextState] < 0:
+                postsynaptic[ps][self.nextState] = 0
 
             if postsynaptic[ps][self.thisState] >= threshold:
                 if ps[:3] not in muscles:
                     self.fire_neuron(ps)
-                    postsynaptic[ps][self.nextState] = NegthresholdHyperpolarisation
+                    postsynaptic[ps][self.nextState] = 0 # NegthresholdHyperpolarisation
             else:
                 postsynaptic[ps][self.PreviousValue] = postsynaptic[ps][self.thisState]
             if postsynaptic[ps][self.nextState] < Negthreshold:
                 postsynaptic[ps][self.nextState] = Negthreshold
+            # Clamp muscles: they never reset, but must not exceed threshold
+            if ps[:3] in muscles and postsynaptic[ps][self.nextState] > threshold:
+                postsynaptic[ps][self.nextState] = threshold
+
 
         for _, idx in masked_indices:
             ps = neuron_list[idx]
@@ -327,6 +378,10 @@ class Simulator:
     def start_simulation(self):
         self.neurones = []
         self.time_values = []
+
+        # Diagnostics for the threshold screen
+        self.max_postsynaptic_value = 0
+        self.neurons_above_threshold = []
         createpostsynaptic()
         self.dist = 15
         self.tfood = 0
@@ -344,6 +399,15 @@ class Simulator:
     def step_simulation(self):
         self.current_time = time.time() - self.start_time
         self.time_values.append(self.current_time)
+
+        # Apply pseudo sensors from the forced-functions screen.
+        if 'TOUCH_SENSOR' in getattr(self, 'forced_neurons', set()):
+            self.touch = True
+        if 'FOOD_SENSOR' in getattr(self, 'forced_neurons', set()):
+            self.food = max(self.food, 20)
+
+        # Keep forced_active_neurons in sync (in case UI toggles changed)
+        self.update_forced_active_neurons()
 
         if self.touch or (self.touch_neurons_active and 0 < self.dist < 30):
             self.activate_touch_neurons()
@@ -396,13 +460,14 @@ class Simulator:
             self.muscle_segments = [{} for _ in range(num_segments)]
         contraction_scale = 0.1
         max_offset = 30
-        saturation_value = threshold
+        #saturation_value = threshold
+        saturation_value = threshold if threshold > 0 else 1
         for i in range(num_segments):
             muscle_num = f"{7 + i:02d}"
-            act_MDL = postsynaptic.get(f"MDL{muscle_num}", [0, 0, 0])[self.thisState] if f"MDL{muscle_num}" in postsynaptic else 0
-            act_MDR = postsynaptic.get(f"MDR{muscle_num}", [0, 0, 0])[self.thisState] if f"MDR{muscle_num}" in postsynaptic else 0
-            act_MVL = postsynaptic.get(f"MVL{muscle_num}", [0, 0, 0])[self.thisState] if f"MVL{muscle_num}" in postsynaptic else 0
-            act_MVR = postsynaptic.get(f"MVR{muscle_num}", [0, 0, 0])[self.thisState] if f"MVR{muscle_num}" in postsynaptic else 0
+            act_MDL = postsynaptic.get(f"MDL{muscle_num}", [0, 0, 0, 0, 0])[self.thisState] if f"MDL{muscle_num}" in postsynaptic else 0
+            act_MDR = postsynaptic.get(f"MDR{muscle_num}", [0, 0, 0, 0, 0])[self.thisState] if f"MDR{muscle_num}" in postsynaptic else 0
+            act_MVL = postsynaptic.get(f"MVL{muscle_num}", [0, 0, 0, 0, 0])[self.thisState] if f"MVL{muscle_num}" in postsynaptic else 0
+            act_MVR = postsynaptic.get(f"MVR{muscle_num}", [0, 0, 0, 0, 0])[self.thisState] if f"MVR{muscle_num}" in postsynaptic else 0
             dorsal_avg = (act_MDL + act_MDR) / 2.0
             ventral_avg = (act_MVL + act_MVR) / 2.0
             raw_activation = (dorsal_avg + ventral_avg) / 2.0

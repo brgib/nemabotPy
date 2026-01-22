@@ -17,10 +17,10 @@ nextState = 1
 # Repos -70mV
 # Hyperpolarisation -80/-90mV
 
-threshold = 105 #35 # 35 # 30 # 35
+threshold = 35 # 35 # 105 #35 # 35 # 30 # 35
 
-Negthreshold = 20 #-70 # -40 # -70
-NegthresholdHyperpolarisation =  0 # -90 # -50 # -90
+Negthreshold = 0 #-70 # 20 #-70 # -40 # -70
+NegthresholdHyperpolarisation =  35 #-90 # 0 # -90 # -50 # -90
 # Accumulators are used to decide the value to send to the Left and Right motors
 # of the GoPiGo robot
 accumleft = 0
