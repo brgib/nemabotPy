@@ -17,7 +17,7 @@ nextState = 1
 # Repos -70mV
 # Hyperpolarisation -80/-90mV
 
-threshold = 35 # 35 # 105 #35 # 35 # 30 # 35
+threshold = 30 # 35 # 105 #35 # 35 # 30 # 35
 
 Negthreshold = 0 #-70 # 20 #-70 # -40 # -70
 NegthresholdHyperpolarisation =  35 #-90 # 0 # -90 # -50 # -90
@@ -34,7 +34,6 @@ musDleft = ['MDL07', 'MDL08', 'MDL09', 'MDL10', 'MDL11', 'MDL12', 'MDL13', 'MDL1
 musVleft = ['MVL07', 'MVL08', 'MVL09', 'MVL10', 'MVL11', 'MVL12', 'MVL13', 'MVL14', 'MVL15', 'MVL16', 'MVL17', 'MVL18', 'MVL19', 'MVL20', 'MVL21', 'MVL22', 'MVL23']
 musDright = ['MDR07', 'MDR08', 'MDR09', 'MDR10', 'MDR11', 'MDR12', 'MDR13', 'MDR14', 'MDR15', 'MDR16', 'MDR17', 'MDR18', 'MDR19', 'MDR20', 'MDR21', 'MDR22', 'MDR23']
 musVright = ['MVR07', 'MVR08', 'MVR09', 'MVR10', 'MVR11', 'MVR12', 'MVR13', 'MVR14', 'MVR15', 'MVR16', 'MVR17', 'MVR18', 'MVR19', 'MVR20', 'MVR21', 'MVR22', 'MVR23']
-
 # This is the full C Elegans Connectome as expresed in the form of the Presynatptic
 # neurite and the postsynaptic neurites
 # postsynaptic['ADAR'][nextState] = (2 + postsynaptic['ADAR'][nextState])

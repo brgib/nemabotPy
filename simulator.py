@@ -17,7 +17,8 @@ import time
 import pygame
 import math
 import random
-from connectome import *  # postsynaptic, muscles, musDleft, musVleft, musDright, musVright, threshold, Negthreshold, NegthresholdHyperpolarisation, createpostsynaptic
+# postsynaptic, muscles, musDleft, musVleft, musDright, musVright, threshold, Negthreshold, Negthreshold, Hyperpolarisation, createpostsynaptic
+from connectome import *
 
 class Simulator:
     def __init__(self):
@@ -361,10 +362,6 @@ class Simulator:
                 postsynaptic[ps][self.PreviousValue] = postsynaptic[ps][self.thisState]
             if postsynaptic[ps][self.nextState] < Negthreshold:
                 postsynaptic[ps][self.nextState] = Negthreshold
-            # Clamp muscles: they never reset, but must not exceed threshold
-            if ps[:3] in muscles and postsynaptic[ps][self.nextState] > threshold:
-                postsynaptic[ps][self.nextState] = threshold
-
 
         for _, idx in masked_indices:
             ps = neuron_list[idx]
@@ -464,10 +461,10 @@ class Simulator:
         saturation_value = threshold if threshold > 0 else 1
         for i in range(num_segments):
             muscle_num = f"{7 + i:02d}"
-            act_MDL = postsynaptic.get(f"MDL{muscle_num}", [0, 0, 0, 0, 0])[self.thisState] if f"MDL{muscle_num}" in postsynaptic else 0
-            act_MDR = postsynaptic.get(f"MDR{muscle_num}", [0, 0, 0, 0, 0])[self.thisState] if f"MDR{muscle_num}" in postsynaptic else 0
-            act_MVL = postsynaptic.get(f"MVL{muscle_num}", [0, 0, 0, 0, 0])[self.thisState] if f"MVL{muscle_num}" in postsynaptic else 0
-            act_MVR = postsynaptic.get(f"MVR{muscle_num}", [0, 0, 0, 0, 0])[self.thisState] if f"MVR{muscle_num}" in postsynaptic else 0
+            act_MDL = postsynaptic.get(f"MDL{muscle_num}", [0, 0, 0])[self.thisState] if f"MDL{muscle_num}" in postsynaptic else 0
+            act_MDR = postsynaptic.get(f"MDR{muscle_num}", [0, 0, 0])[self.thisState] if f"MDR{muscle_num}" in postsynaptic else 0
+            act_MVL = postsynaptic.get(f"MVL{muscle_num}", [0, 0, 0])[self.thisState] if f"MVL{muscle_num}" in postsynaptic else 0
+            act_MVR = postsynaptic.get(f"MVR{muscle_num}", [0, 0, 0])[self.thisState] if f"MVR{muscle_num}" in postsynaptic else 0
             dorsal_avg = (act_MDL + act_MDR) / 2.0
             ventral_avg = (act_MVL + act_MVR) / 2.0
             raw_activation = (dorsal_avg + ventral_avg) / 2.0
