@@ -17,8 +17,11 @@ import time
 import pygame
 import math
 import random
+import os
 # postsynaptic, muscles, musDleft, musVleft, musDright, musVright, threshold, Negthreshold, Negthreshold, Hyperpolarisation, createpostsynaptic
 from connectome import *
+from excel_connectome_pylightxl import ExcelConnectomePylightxl
+from gap_junction import GapJunctionSymmetric
 
 class Simulator:
     def __init__(self):
@@ -107,6 +110,9 @@ class Simulator:
         self.excel_path = ""
         self.excel_status = "No file loaded."
         self.loaded_network_from_excel = None
+        self.gap_model = None
+        self.excel_apply_gap = True
+        self.gap_gain = 0.01
         self.dropdown_menu_visible = False
         self.dropdown_menu_rect = None
         self.scale_reset = False
@@ -310,10 +316,18 @@ class Simulator:
             self.stop()
 
     def dendrite_accumulate(self, dneuron):
+        # If an Excel-loaded connectome is active, use it; otherwise fall back to
+        # the hard-coded connectome.py functions.
+        if self.loaded_network_from_excel is not None:
+            self.loaded_network_from_excel.apply(dneuron, postsynaptic, self.nextState)
+            return
         f = eval(dneuron); f()
 
     def fire_neuron(self, fneuron):
         if fneuron != "MVULVA":
+            if self.loaded_network_from_excel is not None:
+                self.loaded_network_from_excel.apply(fneuron, postsynaptic, self.nextState)
+                return
             f = eval(fneuron); f()
 
     def set_neuron_value(self, fneuron, value):
@@ -336,6 +350,14 @@ class Simulator:
         for neuron in self.forced_active_neurons:
             postsynaptic[neuron][self.thisState] = threshold
             postsynaptic[neuron][self.nextState] = threshold
+
+
+        # --- GAP junction coupling (optional, symmetric) ---
+        if self.gap_model is not None and self.excel_apply_gap:
+            try:
+                self.gap_model.apply_step(postsynaptic, self.thisState, self.nextState, gain=self.gap_gain)
+            except Exception:
+                pass
 
         for _, idx in masked_indices:
             ps = neuron_list[idx]
@@ -372,6 +394,52 @@ class Simulator:
         self.motorcontrol()
         self.iteration += 1
 
+    
+    def load_network_from_excel(self, xlsx_path: str, chem_sheet: str, gap_symmetric_sheet: str | None = None, apply_gap: bool = True) -> bool:
+        """Load chemical sheet (+ optional symmetric gap-junction sheet) from XLSX (pylightxl).
+
+        - chem_sheet: e.g. 'herm chem grouped'
+        - gap_symmetric_sheet: e.g. 'herm gap jn grouped symmetric' (optional)
+        - apply_gap: toggle applying the GAP model during simulation
+        """
+        try:
+            chem = ExcelConnectomePylightxl.load(xlsx_path, sheet_name=chem_sheet)
+            self.loaded_network_from_excel = chem
+            self.excel_path = xlsx_path
+            self.excel_apply_gap = bool(apply_gap)
+
+            # Ensure postsynaptic has entries for all neurons in this network, then reset values.
+            chem.ensure_postsynaptic_entries(postsynaptic)
+            chem.reset_postsynaptic(postsynaptic)
+
+            # GAP symmetric (optional)
+            self.gap_model = None
+            if gap_symmetric_sheet:
+                gap_net = ExcelConnectomePylightxl.load(xlsx_path, sheet_name=gap_symmetric_sheet)
+                gap_net.ensure_postsynaptic_entries(postsynaptic)
+                self.gap_model = GapJunctionSymmetric.from_excel_connectome(gap_net)
+
+            self.excel_status = (
+                f"Loaded: {os.path.basename(xlsx_path)} | chem='{chem_sheet}'"
+                + (f" | gap='{gap_symmetric_sheet}'" if gap_symmetric_sheet else "")
+                + f" | neurons: {len(chem.neurons)}"
+            )
+            return True
+        except Exception as e:
+            import traceback
+            traceback.print_exc()
+            self.loaded_network_from_excel = None
+            self.gap_model = None
+            self.excel_status = f"Excel load failed: {e}"
+            return False
+
+
+    def unload_excel_network(self) -> None:
+        """Return to the built-in hard-coded connectome.py network."""
+        self.loaded_network_from_excel = None
+        self.excel_status = "No file loaded."
+        createpostsynaptic()
+
     def start_simulation(self):
         self.neurones = []
         self.time_values = []
@@ -379,7 +447,11 @@ class Simulator:
         # Diagnostics for the threshold screen
         self.max_postsynaptic_value = 0
         self.neurons_above_threshold = []
-        createpostsynaptic()
+        # Initialize postsynaptic storage.
+        if self.loaded_network_from_excel is not None:
+            self.loaded_network_from_excel.reset_postsynaptic(postsynaptic)
+        else:
+            createpostsynaptic()
         self.dist = 15
         self.tfood = 0
         if not self.log_created:

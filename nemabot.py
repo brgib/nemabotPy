@@ -26,7 +26,7 @@ import screen_wave    # Raster (déclenchementws)
 import screen_movement
 import screen_worm
 import screen_options
-import screen_excel_loader
+import screen_excel_loader_pylightxl as screen_excel_loader
 import screen_forced_functions
 
 def splash(sim):
