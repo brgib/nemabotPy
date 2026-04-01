@@ -118,6 +118,14 @@ class Simulator:
         self.scale_reset = False
         self.auto_scale_waves = True  # autoscale limited to Waves (curves)
 
+        # Random initialization of neuron states
+        self.random_init_min = 0.0
+        self.random_init_max = float(threshold) * 1.10
+        self.random_init_step = max(0.5, float(threshold) / 20.0)
+        self.random_init_target_mode = 'all'  # 'all' or 'configured'
+        self.random_init_last_count = 0
+        self.random_init_last_range = (self.random_init_min, self.random_init_max)
+
         self.preconfigured_sets = {
             'Muscles Tête': ['MVL01', 'MVL02', 'MVD01', 'MVD02', 'MDR01', 'MDR02', 'MVR01', 'MVR02'],
             'Muscles Ventraux': ['MVL07', 'MVL08', 'MVL09', 'MVR07', 'MVR08', 'MVR09'],
@@ -156,6 +164,15 @@ class Simulator:
         self.tfood = 0
         self.log_created = False
         self.file = None
+
+        # Analog muscle model: muscles do not fire like neurons.
+        # They integrate excitation continuously, saturate, then relax back to rest.
+        self.muscle_input_gain = 0.08
+        self.muscle_relaxation = 0.12
+        self.muscle_inhibition_gain = 0.20
+        self.muscle_max_activation = 100.0
+        self.muscle_neighbor_coupling = 0.10
+        self.muscle_activation = {}
 
         # Worm functions (all OFF)
         self.worm_functions = [
@@ -276,6 +293,100 @@ class Simulator:
             new_idx = n - 1
         self.menu_selection_index = new_idx
 
+    def _clamp_random_init_bounds(self):
+        """Keep random initialization bounds valid and ordered."""
+        try:
+            self.random_init_min = float(self.random_init_min)
+        except Exception:
+            self.random_init_min = 0.0
+        try:
+            self.random_init_max = float(self.random_init_max)
+        except Exception:
+            self.random_init_max = self.random_init_min
+        if self.random_init_min > self.random_init_max:
+            self.random_init_max = self.random_init_min
+        if self.random_init_max < self.random_init_min:
+            self.random_init_min = self.random_init_max
+
+    def set_random_init_bound(self, which, value):
+        if which == 'min':
+            self.random_init_min = float(value)
+        else:
+            self.random_init_max = float(value)
+        self._clamp_random_init_bounds()
+
+    def adjust_random_init_bound(self, which, delta):
+        if which == 'min':
+            self.random_init_min = float(self.random_init_min) + float(delta)
+        else:
+            self.random_init_max = float(self.random_init_max) + float(delta)
+        self._clamp_random_init_bounds()
+
+    def _expand_configured_neuron_names(self):
+        configured = set()
+
+        configured.update(getattr(self, 'forced_active_neurons', set()))
+        configured.update(getattr(self, 'neuron_data', {}).keys())
+
+        for logical_name in getattr(self, 'forced_neurons', set()):
+            if logical_name in ('FOOD_SENSOR', 'TOUCH_SENSOR'):
+                continue
+            for key in postsynaptic.keys():
+                if key.startswith(logical_name):
+                    configured.add(key)
+
+        for func in getattr(self, 'worm_functions', []):
+            if func.get('active'):
+                for logical_name in func.get('neurons', []):
+                    for key in postsynaptic.keys():
+                        if key.startswith(logical_name):
+                            configured.add(key)
+
+        return configured
+
+    def get_random_init_targets(self, mode=None):
+        mode = mode or getattr(self, 'random_init_target_mode', 'all')
+        if mode == 'configured':
+            names = [n for n in postsynaptic.keys() if n in self._expand_configured_neuron_names()]
+            if names:
+                return names
+        return list(postsynaptic.keys())
+
+    def trigger_random_initialization(self, mode=None):
+        """Initialize neuron states with random values in the configured range.
+
+        Mode:
+          - 'all': all neurons in postsynaptic
+          - 'configured': plotted/forced/configured neurons only; falls back to all if empty
+        """
+        self._clamp_random_init_bounds()
+        mode = mode or getattr(self, 'random_init_target_mode', 'all')
+        targets = self.get_random_init_targets(mode=mode)
+        if not targets:
+            self.random_init_last_count = 0
+            return 0
+
+        lo = float(self.random_init_min)
+        hi = float(self.random_init_max)
+
+        for name in targets:
+            if name not in postsynaptic:
+                continue
+            value = lo if abs(hi - lo) < 1e-12 else random.uniform(lo, hi)
+            postsynaptic[name][self.thisState] = value
+            postsynaptic[name][self.nextState] = value
+            postsynaptic[name][self.PreviousValue] = value
+            postsynaptic[name][self.activated] = 1.0 if value >= threshold else 0.0
+            postsynaptic[name][self.decroissance] = 0.0
+
+        self.random_init_target_mode = mode
+        self.random_init_last_count = len(targets)
+        self.random_init_last_range = (lo, hi)
+
+        # Reset muscle integrator so the visible body state follows the new neuron state cleanly.
+        self.reset_analog_muscles()
+        return len(targets)
+
     def toggle_fullscreen(self):
         self.fullscreen_mode = not self.fullscreen_mode
         flags = pygame.FULLSCREEN if self.fullscreen_mode else 0
@@ -293,15 +404,66 @@ class Simulator:
         except pygame.error:
             pass
 
+    def _all_muscle_names(self):
+        return [n for n in postsynaptic.keys() if n[:3] in muscles]
+
+    def reset_analog_muscles(self):
+        self.muscle_activation = {n: 0.0 for n in self._all_muscle_names()}
+
+    def update_analog_muscles(self):
+        if not self.muscle_activation:
+            self.reset_analog_muscles()
+
+        updated = {}
+        for name in self._all_muscle_names():
+            current = float(self.muscle_activation.get(name, 0.0))
+            command = float(postsynaptic.get(name, [0.0, 0.0, 0.0])[self.thisState]) if name in postsynaptic else 0.0
+            if command >= 0.0:
+                current += self.muscle_input_gain * command
+            else:
+                current -= self.muscle_inhibition_gain * abs(command)
+            current -= self.muscle_relaxation * current
+            if current < 0.0:
+                current = 0.0
+            elif current > self.muscle_max_activation:
+                current = self.muscle_max_activation
+            updated[name] = current
+
+        # small smoothing along each longitudinal chain to produce cleaner waves
+        chains = [
+            [f"MDL{i:02d}" for i in range(7, 24)],
+            [f"MDR{i:02d}" for i in range(7, 24)],
+            [f"MVL{i:02d}" for i in range(7, 24)],
+            [f"MVR{i:02d}" for i in range(7, 24)],
+        ]
+        coupling = max(0.0, min(0.5, self.muscle_neighbor_coupling))
+        if coupling > 0.0:
+            smoothed = dict(updated)
+            for chain in chains:
+                for idx, name in enumerate(chain):
+                    if name not in updated:
+                        continue
+                    neighbors = []
+                    if idx > 0 and chain[idx - 1] in updated:
+                        neighbors.append(updated[chain[idx - 1]])
+                    if idx + 1 < len(chain) and chain[idx + 1] in updated:
+                        neighbors.append(updated[chain[idx + 1]])
+                    if neighbors:
+                        mean_n = sum(neighbors) / len(neighbors)
+                        smoothed[name] = updated[name] + coupling * (mean_n - updated[name])
+            updated = smoothed
+
+        self.muscle_activation = updated
 
     def motorcontrol(self):
         self.accumleft = 0
         self.accumright = 0
-        for pscheck in postsynaptic:
+        source = self.muscle_activation if self.muscle_activation else {n: postsynaptic[n][self.thisState] for n in postsynaptic if n[:3] in muscles}
+        for pscheck, value in source.items():
             if pscheck in musDleft or pscheck in musVleft:
-                self.accumleft += postsynaptic[pscheck][self.thisState]
+                self.accumleft += value
             elif pscheck in musDright or pscheck in musVright:
-                self.accumright += postsynaptic[pscheck][self.thisState]
+                self.accumright += value
         if self.accumleft == 0 and self.accumright == 0:
             self.stop()
         elif self.accumright <= 0 and self.accumleft < 0:
@@ -391,6 +553,7 @@ class Simulator:
                 postsynaptic[ps][self.nextState] = Negthreshold
             postsynaptic[ps][self.thisState] = postsynaptic[ps][self.nextState]
 
+        self.update_analog_muscles()
         self.motorcontrol()
         self.iteration += 1
 
@@ -462,6 +625,7 @@ class Simulator:
             self.log_created = True
         self.thisState = 0
         self.nextState = 1
+        self.reset_analog_muscles()
         self.running = True
         self.start_time = time.time()
 
@@ -527,27 +691,36 @@ class Simulator:
         num_segments = 17
         if not hasattr(self, 'muscle_segments'):
             self.muscle_segments = [{} for _ in range(num_segments)]
-        contraction_scale = 0.1
-        max_offset = 30
-        #saturation_value = threshold
-        saturation_value = threshold if threshold > 0 else 1
+        if not self.muscle_activation:
+            self.reset_analog_muscles()
+
+        contraction_scale = 0.55
+        max_offset = 24.0
+        saturation_value = self.muscle_max_activation if self.muscle_max_activation > 0 else 1.0
+
         for i in range(num_segments):
             muscle_num = f"{7 + i:02d}"
-            act_MDL = postsynaptic.get(f"MDL{muscle_num}", [0, 0, 0])[self.thisState] if f"MDL{muscle_num}" in postsynaptic else 0
-            act_MDR = postsynaptic.get(f"MDR{muscle_num}", [0, 0, 0])[self.thisState] if f"MDR{muscle_num}" in postsynaptic else 0
-            act_MVL = postsynaptic.get(f"MVL{muscle_num}", [0, 0, 0])[self.thisState] if f"MVL{muscle_num}" in postsynaptic else 0
-            act_MVR = postsynaptic.get(f"MVR{muscle_num}", [0, 0, 0])[self.thisState] if f"MVR{muscle_num}" in postsynaptic else 0
+            act_MDL = float(self.muscle_activation.get(f"MDL{muscle_num}", 0.0))
+            act_MDR = float(self.muscle_activation.get(f"MDR{muscle_num}", 0.0))
+            act_MVL = float(self.muscle_activation.get(f"MVL{muscle_num}", 0.0))
+            act_MVR = float(self.muscle_activation.get(f"MVR{muscle_num}", 0.0))
+
             dorsal_avg = (act_MDL + act_MDR) / 2.0
             ventral_avg = (act_MVL + act_MVR) / 2.0
-            raw_activation = (dorsal_avg + ventral_avg) / 2.0
-            normalized_activation = min(max(raw_activation, 0), saturation_value) / saturation_value
-            length_factor = 1 - normalized_activation * (1 - contraction_scale)
-            normalized_curvature = (dorsal_avg - ventral_avg)
-            curvature_offset = max_offset * normalized_curvature
+            total_activation = max(0.0, (dorsal_avg + ventral_avg) / 2.0)
+            normalized_activation = min(total_activation / saturation_value, 1.0)
+
+            # muscles shorten proportionally to activation, without neuronal thresholding
+            length_factor = 1.0 - normalized_activation * (1.0 - contraction_scale)
+
+            # dorsal/ventral imbalance bends the body
+            curvature_balance = (dorsal_avg - ventral_avg) / saturation_value
+            curvature_offset = max(-max_offset, min(max_offset, max_offset * curvature_balance))
+
             self.muscle_segments[i] = {
                 "length_factor": length_factor,
                 "curvature_offset": curvature_offset,
-                "contraction": normalized_activation
+                "contraction": normalized_activation,
             }
 
     def shutdown(self):

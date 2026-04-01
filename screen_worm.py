@@ -67,7 +67,7 @@ def draw_worm_top(sim, surface, rect):
 
         # Courbure → angle (et non déplacement vertical)
         curvature = segment["curvature_offset"]
-        angle += curvature * 0.002  # facteur d’échelle à ajuster
+        angle += curvature * 0.02  # facteur d’échelle à ajuster
 
         # Cinématique correcte
         x += seg_len * math.cos(angle)

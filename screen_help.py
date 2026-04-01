@@ -129,6 +129,8 @@ def draw(sim, surface, rect):
     section("left", "Stimuli (debug)")
     bullet("left", "F: inject a Food stimulus (sim.add_food())")
     bullet("left", "T: toggle touch neurons (touch_neurons_active)")
+    bullet("left", "R: random initialization of all neurons")
+    bullet("left", "G: random initialization of configured neurons only (falls back to all if none)")
 
     # ============================================================
     # RIGHT COLUMN: PER-SCREEN CONTROLS
@@ -164,6 +166,7 @@ def draw(sim, surface, rect):
     line("right", "Action bar tools:", fs=section_fs, color=green)
     bullet("right", "Excel loader: keyboard-based path entry, then ENTER to load")
     bullet("right", "Worm functions: Arrow keys + ENTER (or mouse) to toggle")
+    bullet("right", "Forced-functions footer: Left/Right changes min/max bounds; Enter can launch random init")
 
     # ----------------------------
     # Safety note if text overflows

@@ -206,6 +206,10 @@ def handle_key(sim, event):
         sim.touch_neurons_active = not sim.touch_neurons_active
     elif k == pygame.K_e:
         sim.dropdown_menu_visible = not sim.dropdown_menu_visible
+    elif k == pygame.K_r:
+        sim.trigger_random_initialization(mode='all')
+    elif k == pygame.K_g:
+        sim.trigger_random_initialization(mode='configured')
     elif k == pygame.K_BACKSPACE:
         if sim.display_curve_screen:
             sim.scale_reset = True
